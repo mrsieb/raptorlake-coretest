@@ -1,0 +1,5 @@
+coretest.exe
+kerntest.exe
+*.exe
+*.o
+dist/

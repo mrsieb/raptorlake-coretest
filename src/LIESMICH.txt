@@ -1,0 +1,32 @@
+﻿CORETEST – findet CPU-Kerne, die mit Turbo still falsch rechnen
+================================================================
+
+Für Intel Core 13./14. Generation (Raptor Lake: i5/i7/i9-13xxx/14xxx), die von der bekannten
+Degradation betroffen sein können ("Vmin Shift"). Typisches Bild: ungeklärte Abstürze, Spiele/Programme
+crashen, Entpacken/Backups melden kaputte Daten – oft OHNE Fehlermeldung (WHEA) im Ereignisprotokoll.
+Intels eigenes Diagnose-Tool (IPDT) findet das oft nicht, weil es nur unter Volllast testet.
+
+SO GEHT'S
+  1. ZIP entpacken (z. B. auf den Desktop).
+  2. coretest.exe doppelklicken. Windows-SmartScreen warnt evtl. ("Unbekannter Herausgeber"),
+     weil das Programm nicht signiert ist: "Weitere Informationen" → "Trotzdem ausführen".
+  3. Enter drücken. Der Test dauert ca. 1 bis 1,5 Stunden. PC in der Zeit NICHT benutzen.
+  4. Am Ende öffnet sich der Bericht (Documents\CoreTest-<Datum>\bericht.txt) mit klarem Ergebnis.
+
+  Schnelltest (nur P-Kerne, ca. 10–15 min): Eingabeaufforderung im Ordner öffnen → coretest.exe --schnell
+
+WAS PASSIERT
+  - Jeder Kern wird einzeln mit vollem Single-Core-Turbo belastet: ein Python-Interpreter (der
+    empfindlichste Test) und eine C++-Rechenlast. Die Ergebnisse werden mit Referenzwerten verglichen.
+  - Der Turbo im aktiven Energieplan wird für den Test auf "Aggressiv" gestellt und danach exakt wie
+    vorher eingestellt. Keine Admin-Rechte, es wird nichts installiert, nichts ins Internet gesendet.
+  - Das mitgelieferte Python (Ordner "python") ist das offizielle "embeddable package" 3.11.9 von
+    python.org, unverändert (Lizenz: PYTHON-LIZENZ.txt).
+
+ERGEBNIS
+  - "keine Fehler gefunden": gutes Zeichen, aber kein Beweis.
+  - "FEHLER GEFUNDEN": die genannten Kerne rechnen unter Turbo falsch → Daten sichern, BIOS aktualisieren
+    (Intel Default Settings, Microcode 0x12B oder neuer) und Intel-Garantie (RMA) anfragen. Der Ergebnis-
+    ordner (bericht.txt, results.csv, errors\, dumps\) ist der Beleg dafür.
+
+Bisher nur auf einem System bestätigt. Abbrechen: Strg+C – der Turbo wird dabei wieder zurückgestellt.
