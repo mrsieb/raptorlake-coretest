@@ -52,6 +52,8 @@ With turbo disabled the errors were gone. This tool is what I ended up using to 
 - Running a load on a possibly unstable CPU is the whole point, but it can crash programs. Close everything important
   first. Use at your own risk.
 - Program output and report are German on German Windows, English otherwise. Code comments are German.
+- **The Linux version has not been confirmed on real hardware yet** (only checked for correct operation in WSL with
+  the VM check disabled). Reports from Linux users are especially welcome.
 
 ## Related tools
 
@@ -67,6 +69,19 @@ Download `CoreTest.zip` from the releases, unzip, double-click `coretest.exe`, p
 - `coretest.exe --quick`: P-cores only, about 10-15 min.
 - The exe is not signed, so SmartScreen will probably warn ("More info" -> "Run anyway").
 
+### Linux
+
+Download `CoreTest-linux.tar.gz`, then `tar xzf CoreTest-linux.tar.gz && cd CoreTest-linux && sudo ./coretest`.
+
+- Static x86-64 binary, no dependencies except `python3` (preinstalled on Ubuntu, Fedora, RHEL 9; on RHEL 8 the
+  platform Python is used). The distribution does not matter.
+- root is needed to switch turbo on (`/sys/devices/system/cpu/intel_pstate/no_turbo`, or `cpufreq/boost` with
+  acpi-cpufreq) and restore it afterwards. Without root it runs only if turbo is already on.
+- Same load, same report. No minidumps; crashes are logged with signal and addresses. Linux CPU numbers differ
+  from Windows, compare by APIC ID.
+- Refuses to run in a VM or WSL, because affinity does not reach real cores there. A live USB stick is fine.
+- Avoid the "power saver" power profile, it may switch turbo off (coretest switches it back on and logs that).
+
 The zip includes the official Python 3.11.9 embeddable package from python.org (unchanged, license in
 `PYTHON-LIZENZ.txt`), so Python does not need to be installed.
 
@@ -79,8 +94,9 @@ run the test again with turbo disabled as a cross-check, and contact Intel for a
 
 ## Building
 
-mingw-w64 on Linux/WSL: `src/build.sh` builds `coretest.exe`, `./package.sh` builds `dist/CoreTest.zip` (downloads the
-Python embeddable package and checks its SHA-256).
+mingw-w64 on Linux/WSL: `src/build.sh` builds `coretest.exe`, `src/build_linux.sh` builds the static Linux binary
+`src/coretest`. `./package.sh` builds `dist/CoreTest.zip` (downloads the Python embeddable package and checks its
+SHA-256) and `dist/CoreTest-linux.tar.gz`. The load shared by both versions is in `src/workload.h`.
 
 ## License
 

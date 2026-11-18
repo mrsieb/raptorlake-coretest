@@ -1,0 +1,40 @@
+CORETEST (Linux) – findet CPU-Kerne, die mit Turbo still falsch rechnen
+========================================================================
+
+Für Intel Core 13./14. Generation (Raptor Lake: i5/i7/i9-13xxx/14xxx), die von der bekannten
+Degradation betroffen sein können ("Vmin Shift"). Typisches Bild: ungeklärte Abstürze, Programme
+crashen, Entpacken/Backups melden kaputte Daten – oft OHNE Machine-Check-Meldung (MCE) im Kernel-Log.
+
+LINUX-VERSION: NOCH NICHT AUF ECHTER HARDWARE BESTÄTIGT. Die Windows-Version ist auf einem System
+bestätigt; diese Version nutzt dieselbe Testlast, ist aber bisher nur in WSL auf den Ablauf geprüft.
+
+SO GEHT'S
+  1. Entpacken:  tar xzf CoreTest-linux.tar.gz && cd CoreTest-linux
+  2. Starten:    sudo ./coretest
+     (root wird nur gebraucht, um den Turbo für den Test einzuschalten und danach zurückzustellen.)
+  3. Enter drücken. Der Test dauert ca. 1 bis 1,5 Stunden. PC in der Zeit NICHT benutzen.
+  4. Am Ende steht der Bericht in ./CoreTest-<Datum>/bericht.txt (bzw. report.txt), mit klarem Ergebnis.
+
+  Schnelltest (nur P-Kerne, ca. 10–15 min):  sudo ./coretest --schnell
+
+VORAUSSETZUNGEN
+  - Echtes Linux (installiert oder Live-USB-Stick, z. B. Ubuntu). NICHT in WSL oder einer VM – dort
+    verweigert coretest den Start, weil die Kernzuordnung keine echten Kerne trifft.
+  - python3 (bei Ubuntu, Fedora, RHEL 9 vorinstalliert; sonst: apt install python3 / dnf install python3).
+    Ohne Python fällt der empfindlichste Test weg, der Bericht sagt das deutlich.
+  - Energieprofil nicht auf "Energiesparen" (power-saver) stellen – das kann den Turbo ausschalten.
+
+WAS PASSIERT
+  - Jeder Kern wird einzeln mit vollem Single-Core-Turbo belastet: ein Python-Interpreter (der
+    empfindlichste Test) und eine C++-Rechenlast. Die Ergebnisse werden mit Referenzwerten verglichen.
+  - Ist der Turbo aus (/sys/devices/system/cpu/intel_pstate/no_turbo), wird er für den Test eingeschaltet
+    und danach zurückgestellt – auch bei Strg+C oder geschlossenem Terminal; nach einem harten Abbruch
+    (kill -9, Absturz) beim nächsten Start. Es wird nichts installiert, nichts ins Internet gesendet.
+  - Während des Tests wird Bereitschaft/Ruhezustand verhindert (systemd-inhibit, falls vorhanden).
+
+ERGEBNIS
+  - "keine Fehler gefunden": gutes Zeichen, aber kein Beweis.
+  - "FEHLER GEFUNDEN": die genannten Kerne rechnen unter Turbo falsch → Daten sichern, BIOS aktualisieren
+    (Intel Default Settings, Microcode 0x12B oder neuer) und Intel-Garantie (RMA) anfragen. Der Ergebnis-
+    ordner (bericht.txt, results.csv, errors/) ist der Beleg dafür.
+  - CPU-Nummern unter Linux sind anders als unter Windows. Zum Vergleich die APIC-ID verwenden.

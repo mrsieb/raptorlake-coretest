@@ -1,5 +1,7 @@
 #!/bin/bash
-# Baut das weitergebbare CoreTest-Paket: coretest.exe + pure_win.py + Python 3.11.9 embeddable (python.org) + LIESMICH.txt → ZIP.
+# Baut die weitergebbaren CoreTest-Pakete:
+#   Windows: coretest.exe + pure_win.py + Python 3.11.9 embeddable (python.org) + LIESMICH.txt → CoreTest.zip
+#   Linux:   coretest (statisch) + coretest_load.py + LIESMICH.txt/README.txt → CoreTest-linux.tar.gz (nutzt das python3 des Systems)
 # Aufruf: ./package.sh [Zielordner]   (Standard: ./dist)
 set -e
 cd "$(dirname "$0")"
@@ -17,4 +19,10 @@ cp coretest.exe pure_win.py LIESMICH.txt README.txt "$arbeit/CoreTest/"
 cp "$arbeit/CoreTest/python/LICENSE.txt" "$arbeit/CoreTest/PYTHON-LIZENZ.txt"
 (cd "$arbeit" && python3 -c "import shutil; shutil.make_archive('CoreTest', 'zip', '.', 'CoreTest')")
 cp "$arbeit/CoreTest.zip" "$ziel/CoreTest.zip"
-ls -la "$ziel/CoreTest.zip"
+mkdir -p "$arbeit/CoreTest-linux"
+./build_linux.sh >/dev/null 2>&1 || { ./build_linux.sh; exit 1; }
+cp coretest "$arbeit/CoreTest-linux/coretest"; cp pure_win.py "$arbeit/CoreTest-linux/coretest_load.py"
+cp LIESMICH-linux.txt "$arbeit/CoreTest-linux/LIESMICH.txt"; cp README-linux.txt "$arbeit/CoreTest-linux/README.txt"
+chmod 755 "$arbeit/CoreTest-linux/coretest"; chmod 644 "$arbeit/CoreTest-linux/"*.py "$arbeit/CoreTest-linux/"*.txt
+tar -C "$arbeit" --owner=0 --group=0 --numeric-owner -czf "$ziel/CoreTest-linux.tar.gz" CoreTest-linux
+ls -la "$ziel/CoreTest.zip" "$ziel/CoreTest-linux.tar.gz"

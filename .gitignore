@@ -3,3 +3,4 @@ kerntest.exe
 *.exe
 *.o
 dist/
+src/coretest
