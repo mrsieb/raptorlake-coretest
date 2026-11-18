@@ -63,7 +63,11 @@ Prime95, y-cruncher, Linpack etc. core by core. OCCT has a similar core cycling 
 
 ## Usage
 
-Download `CoreTest.zip` from the releases, unzip, double-click `coretest.exe`, press Enter.
+Download: [CoreTest.zip](https://github.com/mrsieb/raptorlake-coretest/releases/download/v0.1/CoreTest.zip) (Windows) or
+[CoreTest-linux.tar.gz](https://github.com/mrsieb/raptorlake-coretest/releases/download/v0.1/CoreTest-linux.tar.gz) (Linux),
+version 0.1 (pre-release). All versions and checksums: [releases](https://github.com/mrsieb/raptorlake-coretest/releases).
+
+Windows: unzip `CoreTest.zip`, double-click `coretest.exe`, press Enter.
 
 - Standard run: about 1 to 1.5 h. Don't use the PC meanwhile, other load lowers the turbo clock.
 - `coretest.exe --quick`: P-cores only, about 10-15 min.
@@ -71,7 +75,7 @@ Download `CoreTest.zip` from the releases, unzip, double-click `coretest.exe`, p
 
 ### Linux
 
-Download `CoreTest-linux.tar.gz`, then `tar xzf CoreTest-linux.tar.gz && cd CoreTest-linux && sudo ./coretest`.
+Download `CoreTest-linux.tar.gz` (link above), then `tar xzf CoreTest-linux.tar.gz && cd CoreTest-linux && sudo ./coretest`.
 
 - Static x86-64 binary, no dependencies except `python3` (preinstalled on Ubuntu, Fedora, RHEL 9; on RHEL 8 the
   platform Python is used). The distribution does not matter.
