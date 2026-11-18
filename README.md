@@ -30,7 +30,8 @@ With turbo disabled the errors were gone. This tool is what I ended up using to 
   (CPU, microcode, board, BIOS, Windows build) and what to do next. Plus `results.csv` and an `errors` folder with the
   full output of every failed run.
 - Sets the turbo setting (processor performance boost mode) of the active power plan to "Aggressive" for the test and
-  restores the previous value afterwards, also on Ctrl+C.
+  restores the previous value afterwards, also on Ctrl+C or when the window is closed. If the program is killed
+  (Task Manager, crash), the old value is restored the next time coretest is started. Test processes never outlive it.
 
 ## What it does not do
 

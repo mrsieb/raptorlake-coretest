@@ -141,16 +141,37 @@ static void TrayStarten() {
   wstring dir = wstring(la) + L"\\PowerPlanTray";   // eigener Ordner als Arbeitsverzeichnis (sonst blockiert der Tray den Testordner)
   if (GetFileAttributesW(exe.c_str()) != INVALID_FILE_ATTRIBUTES) ShellExecuteW(nullptr, L"open", exe.c_str(), nullptr, dir.c_str(), SW_SHOWNORMAL);
 }
+static wstring Merkdatei();
 static void Aufraeumen() {
   if (!g_turboGesetzt) return;
   g_turboGesetzt = false;
+  DeleteFileW(Merkdatei().c_str());
   PowerWriteACValueIndex(nullptr, &g_plan, &SUB_PROC, &BOOST, g_altAC); PowerWriteDCValueIndex(nullptr, &g_plan, &SUB_PROC, &BOOST, g_altDC);
   PowerSetActiveScheme(nullptr, &g_plan);
   Log(Fmt(T(L"Turbo-Einstellung wie vorher (Boost-Modus %u)", L"Turbo setting restored (boost mode %u)"), g_altAC));
   if (g_trayWar) { TrayStarten(); Log(T(L"PowerPlanTray wieder gestartet", L"PowerPlanTray restarted")); }
 }
 static BOOL WINAPI Strg(DWORD) { Aufraeumen(); return FALSE; }
+// Merkdatei: alte Turbo-Werte, falls coretest hart beendet wird (Task-Manager, Absturz) – beim nächsten Start zurückstellen
+static wstring Merkdatei() { wchar_t la[MAX_PATH]; GetEnvironmentVariableW(L"LOCALAPPDATA", la, MAX_PATH); return wstring(la) + L"\\coretest-restore.txt"; }
+static void MerkeAlteWerte() {
+  FILE* f = _wfopen(Merkdatei().c_str(), L"w"); if (!f) return;
+  wchar_t g[64]; StringFromGUID2(g_plan, g, 64); fwprintf(f, L"%ls %lu %lu %d\n", g, g_altAC, g_altDC, g_trayWar ? 1 : 0); fclose(f);
+}
+static void AlteWerteNachAbsturz() {
+  FILE* f = _wfopen(Merkdatei().c_str(), L"r"); if (!f) return;
+  wchar_t g[64] = L""; unsigned long ac = 2, dc = 2; int tray = 0; int n = fwscanf(f, L"%63ls %lu %lu %d", g, &ac, &dc, &tray); fclose(f);
+  GUID plan; if (n == 4 && SUCCEEDED(CLSIDFromString(g, &plan)) && ac <= 6 && dc <= 6) {
+    PowerWriteACValueIndex(nullptr, &plan, &SUB_PROC, &BOOST, ac); PowerWriteDCValueIndex(nullptr, &plan, &SUB_PROC, &BOOST, dc);
+    GUID* akt = nullptr; if (PowerGetActiveScheme(nullptr, &akt) == ERROR_SUCCESS && akt) { PowerSetActiveScheme(nullptr, akt); LocalFree(akt); }
+    if (tray) TrayStarten();
+    printf("%s", U8(Fmt(T(L"\n  Ein früherer Test wurde nicht sauber beendet – Turbo-Einstellung wiederhergestellt (Boost-Modus %lu).\n",
+                          L"\n  A previous test did not exit cleanly – turbo setting restored (boost mode %lu).\n"), ac)).c_str());
+  }
+  DeleteFileW(Merkdatei().c_str());
+}
 
+static HANDLE g_job;                                         // alle Testprozesse: enden mit coretest (auch bei Strg+C)
 struct Lauf { string out; DWORD code = 0; double mhz = 0; bool timeout = false; };
 static Lauf Starte(const wstring& cmd, int cpu, double sek) {
   Lauf r; SECURITY_ATTRIBUTES sa{ sizeof sa, nullptr, TRUE }; HANDLE rd, wr; CreatePipe(&rd, &wr, &sa, 0); SetHandleInformation(rd, HANDLE_FLAG_INHERIT, 0);
@@ -158,6 +179,7 @@ static Lauf Starte(const wstring& cmd, int cpu, double sek) {
   PROCESS_INFORMATION pi{}; wstring c = cmd;
   if (!CreateProcessW(nullptr, &c[0], nullptr, nullptr, TRUE, CREATE_SUSPENDED | CREATE_NO_WINDOW, nullptr, nullptr, &si, &pi)) { r.out = "Start fehlgeschlagen"; r.code = GetLastError(); CloseHandle(rd); CloseHandle(wr); return r; }
   CloseHandle(wr);
+  if (g_job) AssignProcessToJobObject(g_job, pi.hProcess);
   SetProcessAffinityMask(pi.hProcess, (DWORD_PTR)1 << cpu);
   // Takt messen: Processor Frequency × % Processor Performance des Ziel-Prozessors
   PDH_HQUERY q; PDH_HCOUNTER cf, cp; PdhOpenQueryW(nullptr, 0, &q);
@@ -197,6 +219,7 @@ int wmain(int argc, wchar_t** argv) {
   if (argc >= 5 && !wcscmp(argv[1], L"--worker")) return Worker(argv[2], _wtof(argv[3]), argv[4]);
   if (argc >= 2 && !wcscmp(argv[1], L"--apic")) { printf("apic %u\n", ApicId()); return 0; }
   g_de = PRIMARYLANGID(GetUserDefaultUILanguage()) == LANG_GERMAN;
+  AlteWerteNachAbsturz();                                      // vorheriger Lauf hart beendet? Turbo zurückstellen
   int von = 0, bis = -1, py = 3, nat = 1, eRunden = 1; double sek = 60; bool schnell = false;
   for (int i = 1; i < argc; i++) {
     if (!wcscmp(argv[i], L"--cpus") && i + 1 < argc) { swscanf(argv[++i], L"%d-%d", &von, &bis); if (bis < von) bis = von; }
@@ -254,6 +277,9 @@ int wmain(int argc, wchar_t** argv) {
   g_log = _wfopen((g_aus + L"\\log.txt").c_str(), L"ab"); g_csv = _wfopen((g_aus + L"\\results.csv").c_str(), L"ab");
   fputs("time;cpu;coretype;core;apic;load;run;seconds;mhz_avg;result;exitcode;detail\n", g_csv); fflush(g_csv);
   SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED);
+  g_job = CreateJobObjectW(nullptr, nullptr);
+  if (g_job) { JOBOBJECT_EXTENDED_LIMIT_INFORMATION li{}; li.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+               SetInformationJobObject(g_job, JobObjectExtendedLimitInformation, &li, sizeof li); }
 
   // Topologie: Effizienzklasse je logischem Prozessor, Kernnummer je Klasse
   int ncpu = 0; vector<int> klasse(64, -1), kern(64, -1);
@@ -285,7 +311,7 @@ int wmain(int argc, wchar_t** argv) {
   if (HWND t = FindWindowW(L"PowerPlanTrayNativ", nullptr)) { PostMessageW(t, WM_CLOSE, 0, 0); Sleep(2000); g_trayWar = true; Log(T(L"PowerPlanTray geschlossen", L"PowerPlanTray closed")); }
   GUID* ag = nullptr; PowerGetActiveScheme(nullptr, &ag); g_plan = *ag; LocalFree(ag);
   PowerReadACValueIndex(nullptr, &g_plan, &SUB_PROC, &BOOST, &g_altAC); PowerReadDCValueIndex(nullptr, &g_plan, &SUB_PROC, &BOOST, &g_altDC);
-  SetConsoleCtrlHandler(Strg, TRUE); g_turboGesetzt = true; SetzeBoost(2); Log(T(L"Turbo an (Boost Aggressiv) im aktiven Plan", L"Turbo on (boost mode Aggressive) in the active plan"));
+  SetConsoleCtrlHandler(Strg, TRUE); g_turboGesetzt = true; MerkeAlteWerte(); SetzeBoost(2); Log(T(L"Turbo an (Boost Aggressiv) im aktiven Plan", L"Turbo on (boost mode Aggressive) in the active plan"));
   Sleep(3000);
 
   // Referenzwerte auf dem E-Kern, zweimal, müssen gleich sein
